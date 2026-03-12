@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -78,6 +78,34 @@ class PaperExchange:
         client = Client()
         return client.get_symbol_info(symbol)
 
+    def get_all_usdt_pairs(self, min_volume_usdt: float = 0) -> List[str]:
+        """Return all active USDT spot pairs filtered by 24h quote volume."""
+        from binance.client import Client
+        client = Client()
+        tickers = client.get_ticker()
+        pairs = []
+        for t in tickers:
+            sym = t["symbol"]
+            if not sym.endswith("USDT"):
+                continue
+            try:
+                vol = float(t.get("quoteVolume", 0))
+            except (ValueError, TypeError):
+                continue
+            if vol >= min_volume_usdt:
+                pairs.append(sym)
+        pairs.sort(key=lambda s: float(next((t["quoteVolume"] for t in tickers if t["symbol"] == s), 0)), reverse=True)
+        logger.info("Found %d active USDT pairs (min volume %.0f)", len(pairs), min_volume_usdt)
+        return pairs
+
+    def get_portfolio_holdings(self) -> Dict[str, float]:
+        """Return non-USDT holdings as {base_asset: quantity}."""
+        result = {}
+        for asset, qty in self.balances.items():
+            if asset != "USDT" and qty > 0:
+                result[asset] = qty
+        return result
+
 
 class LiveExchange:
     """Executes real orders on Binance Spot."""
@@ -138,6 +166,34 @@ class LiveExchange:
 
     def get_symbol_info(self, symbol: str) -> dict:
         return self._client.get_symbol_info(symbol)
+
+    def get_all_usdt_pairs(self, min_volume_usdt: float = 0) -> List[str]:
+        """Return all active USDT spot pairs filtered by 24h quote volume."""
+        tickers = self._client.get_ticker()
+        pairs = []
+        for t in tickers:
+            sym = t["symbol"]
+            if not sym.endswith("USDT"):
+                continue
+            try:
+                vol = float(t.get("quoteVolume", 0))
+            except (ValueError, TypeError):
+                continue
+            if vol >= min_volume_usdt:
+                pairs.append(sym)
+        pairs.sort(key=lambda s: float(next((t["quoteVolume"] for t in tickers if t["symbol"] == s), 0)), reverse=True)
+        logger.info("Found %d active USDT pairs (min volume %.0f)", len(pairs), min_volume_usdt)
+        return pairs
+
+    def get_portfolio_holdings(self) -> Dict[str, float]:
+        """Return non-USDT holdings as {base_asset: quantity}."""
+        result = {}
+        for bal in self._client.get_account()["balances"]:
+            asset = bal["asset"]
+            qty = float(bal["free"]) + float(bal["locked"])
+            if asset != "USDT" and qty > 0:
+                result[asset] = qty
+        return result
 
 
 # ------------------------------------------------------------------

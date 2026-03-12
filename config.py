@@ -19,20 +19,26 @@ class Config:
     trading_mode: str = "paper"  # "paper" or "live"
 
     # Pairs & strategy
-    trading_pairs: List[str] = field(default_factory=lambda: ["BTCUSDT"])
+    trading_pairs: List[str] = field(default_factory=lambda: [])  # empty = scan all markets
     strategy: str = "combined"
-    timeframe: str = "1h"
+    timeframe: str = "15m"
+
+    # Market scanning
+    scan_all_markets: bool = True           # dynamically fetch all USDT pairs
+    min_volume_usdt: float = 5_000_000.0   # ignore pairs with 24h volume below this
+    top_opportunities: int = 5             # max new positions to open per cycle from ranked signals
+    rebalance: bool = True                  # sell weaker holdings if a stronger signal appears
 
     # Risk management
     max_position_size_pct: float = 5.0
-    stop_loss_pct: float = 2.0
-    take_profit_pct: float = 4.0
-    max_open_positions: int = 3
+    stop_loss_pct: float = 1.5
+    take_profit_pct: float = 3.0
+    max_open_positions: int = 5
     max_daily_loss_pct: float = 10.0
 
-    # SMA settings
-    sma_fast_period: int = 10
-    sma_slow_period: int = 30
+    # SMA settings (tuned for 15m)
+    sma_fast_period: int = 8
+    sma_slow_period: int = 21
 
     # RSI settings
     rsi_period: int = 14
@@ -51,18 +57,22 @@ class Config:
             trading_mode=os.getenv("TRADING_MODE", "paper").lower(),
             trading_pairs=[
                 p.strip()
-                for p in os.getenv("TRADING_PAIRS", "BTCUSDT").split(",")
+                for p in os.getenv("TRADING_PAIRS", "").split(",")
                 if p.strip()
             ],
             strategy=os.getenv("STRATEGY", "combined").lower(),
-            timeframe=os.getenv("TIMEFRAME", "1h"),
+            timeframe=os.getenv("TIMEFRAME", "15m"),
+            scan_all_markets=os.getenv("SCAN_ALL_MARKETS", "true").lower() == "true",
+            min_volume_usdt=float(os.getenv("MIN_VOLUME_USDT", "5000000")),
+            top_opportunities=int(os.getenv("TOP_OPPORTUNITIES", "5")),
+            rebalance=os.getenv("REBALANCE", "true").lower() == "true",
             max_position_size_pct=float(os.getenv("MAX_POSITION_SIZE_PCT", "5.0")),
-            stop_loss_pct=float(os.getenv("STOP_LOSS_PCT", "2.0")),
-            take_profit_pct=float(os.getenv("TAKE_PROFIT_PCT", "4.0")),
-            max_open_positions=int(os.getenv("MAX_OPEN_POSITIONS", "3")),
+            stop_loss_pct=float(os.getenv("STOP_LOSS_PCT", "1.5")),
+            take_profit_pct=float(os.getenv("TAKE_PROFIT_PCT", "3.0")),
+            max_open_positions=int(os.getenv("MAX_OPEN_POSITIONS", "5")),
             max_daily_loss_pct=float(os.getenv("MAX_DAILY_LOSS_PCT", "10.0")),
-            sma_fast_period=int(os.getenv("SMA_FAST_PERIOD", "10")),
-            sma_slow_period=int(os.getenv("SMA_SLOW_PERIOD", "30")),
+            sma_fast_period=int(os.getenv("SMA_FAST_PERIOD", "8")),
+            sma_slow_period=int(os.getenv("SMA_SLOW_PERIOD", "21")),
             rsi_period=int(os.getenv("RSI_PERIOD", "14")),
             rsi_oversold=float(os.getenv("RSI_OVERSOLD", "30")),
             rsi_overbought=float(os.getenv("RSI_OVERBOUGHT", "70")),
